@@ -62,6 +62,8 @@ ggthemr_reset()
 
 ggthemr('flat')
 
+cat.rec <- c(`Grey data` = 'Point data')
+
 tk %>% select(Date, Category) %>%
   mutate(Category = strsplit(Category, ",")) %>% 
   unnest(Category) %>%
@@ -70,6 +72,7 @@ tk %>% select(Date, Category) %>%
   ungroup() %>%
   na.omit() %>%
   complete(Category, Date, fill = list(n = 0)) %>%
+  mutate(Category = recode(Category, !!!cat.rec)) %>%
   group_by(Category) %>% 
   mutate(Studies = cumsum(n)) %>%
   ggplot(aes(x = Date, y = Studies, fill = Category)) + 
@@ -79,6 +82,7 @@ tk %>% select(Date, Category) %>%
         panel.border = element_rect(colour = 'black', fill = NA))
 
 ################################ 2. Pie Charts
+
 
 ggthemr('fresh')
 
@@ -114,14 +118,23 @@ tk %>% mutate(Human = recode(`Human case data`, !!!rec2)) %>%
         axis.title.y = element_blank(),
         axis.line = element_blank()) -> g2
 
+######
 
-rec3 <- c(.missing = 'No wildlife data', .default = 'Wildlife data')
+wild.vec <- c('Boar', 'Deer', 'Hare', 'Shrew', 'Hedgehog', 'Moose', 'Rodent', 'White-tailed deer',
+              'Wild canid', 'Wild pig', 'Wild ungulate')
 
-tk %>% select(`Host species`) %>% 
-  mutate(Wildlife = recode(`Host species`, !!!rec3)) %>%
-  count(Wildlife) %>%
+tk %>% select(Title, `Host species`) %>%
+  mutate(Hosts = strsplit(`Host species`, ",")) %>% 
+  unnest(Hosts) %>%
+  mutate(Wildlife = case_when(Hosts %in% wild.vec ~ 1,
+                              !(Hosts %in% wild.vec) ~ 0)) %>% 
+  group_by(Title) %>% 
+  summarize(Wildlife = max(Wildlife)) %>% 
+  mutate(Wildlife = case_when(Wildlife == 1 ~ 'Wildlife data',
+                              Wildlife == 0 ~ 'No wildlife data')) %>%
   mutate(Wildlife = as_factor(Wildlife)) %>%
   mutate(Wildlife = fct_relevel(Wildlife, 'Wildlife data', 'No wildlife data')) %>%
+  count(Wildlife) %>%
   ggplot(aes(x = "", y = n, fill = Wildlife)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0, direction = -1) +
@@ -132,11 +145,97 @@ tk %>% select(`Host species`) %>%
         panel.grid  = element_blank(),
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
-        axis.line = element_blank()) -> g3 
+        axis.line = element_blank()) -> g3
 
-(g1 + g2 + g3)
+live.vec <- c('Cattle', 'Domestic dog', 'Domestic pig', 'Goat', 'Sheep', 'Buffalo')
 
-tk %>% select(`Host species`) %>%
-  mutate(Wildlife = strsplit(`Host species`, ",")) %>% 
-  unnest() %>%
-  count(Wildlife)
+tk %>% select(Title, `Host species`) %>%
+  mutate(Hosts = strsplit(`Host species`, ",")) %>% 
+  unnest(Hosts) %>%
+  mutate(Livestock = case_when(Hosts %in% live.vec ~ 1,
+                              !(Hosts %in% live.vec) ~ 0)) %>% 
+  group_by(Title) %>% 
+  summarize(Livestock = max(Livestock)) %>% 
+  mutate(Livestock = case_when(Livestock == 1 ~ 'Livestock data',
+                              Livestock == 0 ~ 'No livestock data')) %>%
+  mutate(Livestock = as_factor(Livestock)) %>%
+  mutate(Livestock = fct_relevel(Livestock, 'Livestock data', 'No livestock data')) %>%
+  count(Livestock) %>%
+  ggplot(aes(x = "", y = n, fill = Livestock)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0, direction = -1) +
+  theme(legend.position = 'bottom', 
+        legend.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid  = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.line = element_blank()) -> g4
+
+(g1 + g2 + g4 + g3)
+
+###################################################################
+
+wild.recode <- c(`Wild pig` = 'Suid',
+                 Boar = 'Suid',
+                 `White-tailed deer` = 'Ungulate',
+                 Deer = 'Ungulate',
+                 Moose = 'Ungulate',
+                 Hare = 'Other small mammal',
+                 Shrew = 'Other small mammal',
+                 Hedgehog = 'Other small mammal',
+                 `Wild canid` = 'Canid',
+                 `Wild ungulate` = 'Ungulate')
+
+x <- ggthemr('grape', set_theme = FALSE)
+
+tk %>% select(Title, `Host species`) %>%
+  mutate(Hosts = strsplit(`Host species`, ",")) %>% 
+  unnest(Hosts) %>%
+  filter(Hosts %in% wild.vec) %>% 
+  select(Title, Hosts) %>% unique() %>% 
+  mutate(Hosts = recode(Hosts, !!!wild.recode)) %>%
+  mutate(Hosts = fct_relevel(Hosts, 'Canid','Suid','Ungulate','Rodent','Other small mammal')) %>%
+  count(Hosts) %>%
+  ggplot(aes(x = "", y = n, fill = Hosts)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0, direction = -1) +
+  theme(legend.position = 'bottom', 
+        legend.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid  = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.line = element_blank()) + 
+  scale_fill_manual(values = unlist(x$palette$swatch)) -> p1
+
+live.vec <- c('Cattle', 'Domestic dog', 'Domestic pig', 'Goat', 'Sheep', 'Buffalo')
+
+live.recode <- c('Domestic dog' = 'Dog',
+                 'Domestic pig' = 'Pig')
+
+y <- ggthemr('light', set_theme = FALSE)
+
+tk %>% select(Title, `Host species`) %>%
+  mutate(Hosts = strsplit(`Host species`, ",")) %>% 
+  unnest(Hosts) %>%
+  filter(Hosts %in% live.vec) %>% 
+  select(Title, Hosts) %>% unique() %>% 
+  mutate(Hosts = recode(Hosts, !!!live.recode)) %>%
+  count(Hosts) %>%
+  ggplot(aes(x = "", y = n, fill = Hosts)) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0, direction = -1) +
+  theme(legend.position = 'bottom', 
+        legend.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.grid  = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.line = element_blank()) + 
+  scale_fill_manual(values = unlist(y$palette$swatch)) -> p2
+
+p1 + p2
