@@ -35,7 +35,8 @@ tk %>% select(Date, Pathogen_Disease) %>%
         axis.line = element_line(colour = "black"),
         panel.border = element_rect(colour = 'black', fill = NA),
         legend.text = element_text(size = 7.5)) +
-  scale_fill_manual(values = ramp1) -> g1
+  scale_fill_manual(values = ramp1) +
+  xlim(1995, 2020) -> g1
 
 tk %>% select(Date, Vector) %>%
   mutate(Vector = strsplit(Vector, ",")) %>% 
@@ -54,9 +55,10 @@ tk %>% select(Date, Vector) %>%
   theme(axis.line = element_line(colour = "black"),
         panel.border = element_rect(colour = 'black', fill = NA),
         legend.text = element_text(size = 7.5)) +
-  scale_fill_manual(values = ramp2) -> g2
+  scale_fill_manual(values = ramp2) + 
+  xlim(1995, 2020) -> g2
 
-g2 / g1
+g2 / g1 + plot_annotation(tag_levels = c('A', 'B'))
 
 ggthemr_reset()
 
@@ -79,7 +81,8 @@ tk %>% select(Date, Category) %>%
   geom_area() + 
   theme(legend.position = "bottom") +
   theme(axis.line = element_line(colour = "black"),
-        panel.border = element_rect(colour = 'black', fill = NA))
+        panel.border = element_rect(colour = 'black', fill = NA)) + 
+  xlim(1995, 2020)
 
 ################################ 2. Pie Charts
 
@@ -173,7 +176,7 @@ tk %>% select(Title, `Host species`) %>%
         axis.title.y = element_blank(),
         axis.line = element_blank()) -> g4
 
-(g1 + g2 + g4 + g3)
+(g1 + g2 + g4 + g3) + plot_annotation(tag_levels = c('A', 'B', 'C', 'D'))
 
 ###################################################################
 
@@ -197,10 +200,19 @@ tk %>% select(Title, `Host species`) %>%
   select(Title, Hosts) %>% unique() %>% 
   mutate(Hosts = recode(Hosts, !!!wild.recode)) %>%
   mutate(Hosts = fct_relevel(Hosts, 'Canid','Suid','Ungulate','Rodent','Other small mammal')) %>%
-  count(Hosts) %>%
+  count(Hosts) -> 
+                    df
+
+df %>%
+  mutate(
+    cs = rev(cumsum(rev(n))), 
+    pos = n/2 + lead(cs, 1),
+    pos = if_else(is.na(pos), n/2, pos)) -> df2
+
+df %>%
   ggplot(aes(x = "", y = n, fill = Hosts)) +
   geom_bar(stat = "identity", width = 1) +
-  coord_polar("y", start = 0, direction = -1) +
+  coord_polar("y", start = 0) + # , direction = -1) +
   theme(legend.position = 'bottom', 
         legend.title = element_blank(),
         axis.text = element_blank(),
@@ -209,7 +221,9 @@ tk %>% select(Title, `Host species`) %>%
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.line = element_blank()) + 
-  scale_fill_manual(values = unlist(x$palette$swatch)) -> p1
+  scale_fill_manual(values = unlist(x$palette$swatch)) +
+  geom_label_repel(aes(y = pos, label = paste(100*round(n/sum(n),2),"%",sep=''), fill = NULL), data = df2, size = 5, show.legend = F, nudge_x = 1) +
+  guides(fill = guide_legend(title = "Group"))-> p1
 
 live.vec <- c('Cattle', 'Domestic dog', 'Domestic pig', 'Goat', 'Sheep', 'Buffalo')
 
@@ -224,7 +238,16 @@ tk %>% select(Title, `Host species`) %>%
   filter(Hosts %in% live.vec) %>% 
   select(Title, Hosts) %>% unique() %>% 
   mutate(Hosts = recode(Hosts, !!!live.recode)) %>%
-  count(Hosts) %>%
+  count(Hosts) ->
+                      df
+
+df %>%
+  mutate(
+    cs = rev(cumsum(rev(n))), 
+    pos = n/2 + lead(cs, 1),
+    pos = if_else(is.na(pos), n/2, pos)) -> df2
+
+df %>% 
   ggplot(aes(x = "", y = n, fill = Hosts)) +
   geom_bar(stat = "identity", width = 1) +
   coord_polar("y", start = 0, direction = -1) +
@@ -236,6 +259,9 @@ tk %>% select(Title, `Host species`) %>%
         axis.title.x = element_blank(),
         axis.title.y = element_blank(),
         axis.line = element_blank()) + 
-  scale_fill_manual(values = unlist(y$palette$swatch)) -> p2
+  scale_fill_manual(values = unlist(y$palette$swatch)) +
+  geom_label_repel(aes(y = pos, label = paste(100*round(n/sum(n),2),"%",sep=''), fill = NULL), data = df2, size = 5, show.legend = F, nudge_x = 1) +
+  guides(fill = guide_legend(title = "Group")) -> p2
 
-p1 + p2
+p1 + p2 + plot_annotation(tag_levels = c('A', 'B'))
+
